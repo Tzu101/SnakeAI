@@ -2,6 +2,8 @@ import pygame
 import random
 from typing import List, Tuple, Union
 
+from classes.window import Window
+
 
 """
     CONSTANTS
@@ -187,10 +189,11 @@ gridLines = True
 snake: Snake = Snake((GRID_COLUMNS // 2, GRID_ROWS // 2))
 grid: Grid = Grid()
 
-while running:
+"""while running:
     inputs()
     display()
     
-    delta_time = clock.tick(FPS) / 1000
+    delta_time = clock.tick(FPS) / 1000"""
 
-pygame.quit()
+window = Window()
+window.run()
