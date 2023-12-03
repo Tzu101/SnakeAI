@@ -1,6 +1,6 @@
 import pygame
 from enum import Enum
-from typing import List, Tuple, Union, TypeVar
+from typing import List, Tuple, Union, TypeVar, Callable
 
 
 class Cell(Enum):
