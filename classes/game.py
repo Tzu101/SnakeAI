@@ -1,21 +1,22 @@
 import random
 from classes.util import *
-from classes.abstract import WindowComponent
-from classes.controler import ManualControler
+from classes.abstract import WindowComponent, Controler
 
 
 class Game(WindowComponent):
     GRID_COLUMNS = 10
     GRID_ROWS = 10
-    LINE_WIDTH = 2
+    LINE_WIDTH = 1
+    CELL_COUNT = GRID_COLUMNS * GRID_ROWS
 
     BACKGROUND_COLOR = (40, 40, 40)
     LINE_COLOR = (80, 80, 80)
-    SNAKE_HEAD_COLOR = (20, 150, 20)
-    SNAKE_BODY_COLOR = (50, 200, 50)
-    APPLE_COLOR = (200, 50, 50)
+    SNAKE_HEAD_COLOR = (0, 130, 0)
+    SNAKE_BODY_COLOR = (0, 220, 0)
+    APPLE_COLOR = (200, 0, 0)
+    OVER_COLOR = (45, 35, 35)
 
-    ACT_DELAY = 0.1
+    ACT_DELAY = 0.5
 
     @staticmethod
     def random_position() -> Vector2:
@@ -27,8 +28,9 @@ class Game(WindowComponent):
             apple = Game.random_position()
         return apple
 
-    def __init__(self, width: int, height: int):
+    def __init__(self, width: int, height: int, controler: Controler):
         super().__init__(width, height)
+        self.controler = controler
         
         self.cell_width = self.width // Game.GRID_COLUMNS
         self.cell_height = self.height // Game.GRID_ROWS
@@ -38,8 +40,9 @@ class Game(WindowComponent):
         self.grid[self.snake[0][1]][self.snake[0][0]] = Cell.FULL
         self.apple = self.random_apple()
 
-        self.act_timer = 0
-        self.controler = ManualControler()
+        self.total_moves = 0
+        self.feeding_moves = 0
+        self.is_over = False
     
     def reset(self):
         self.grid: Array2D[Cell] = [[Cell.EMPTY for _ in range(Game.GRID_COLUMNS)] for _ in range(Game.GRID_ROWS)]
@@ -48,25 +51,17 @@ class Game(WindowComponent):
         self.grid[self.snake[0][1]][self.snake[0][0]] = Cell.FULL
         self.apple = self.random_apple()
 
-        self.act_timer = 0
-        self.controler = ManualControler()
-
     def move(self, direction: Vector2):
         new_x = self.snake[0][0] + direction[0]
         new_y = self.snake[0][1] + direction[1]
 
-        if new_x < 0:
-            new_x += Game.GRID_COLUMNS
-        if new_x >= Game.GRID_COLUMNS:
-            new_x -= Game.GRID_COLUMNS
-
-        if new_y < 0:
-            new_y += Game.GRID_ROWS
-        if new_y >= Game.GRID_ROWS:
-            new_y -= Game.GRID_ROWS
-
-        if self.grid[new_y][new_x] == Cell.FULL:
-            self.reset()
+        if (
+            not 0 <= new_x < Game.GRID_COLUMNS or 
+            not 0 <= new_y < Game.GRID_ROWS or 
+            self.grid[new_y][new_x] == Cell.FULL or 
+            len(self.snake) + 2*Game.CELL_COUNT**0.5 < self.feeding_moves
+            ):
+            self.is_over = True
         else:
             snake_next = (new_x, new_y)
             self.grid[new_y][new_x] = Cell.FULL
@@ -76,11 +71,18 @@ class Game(WindowComponent):
                 self.snake[s], snake_next = snake_next, self.snake[s]
             
             if self.apple == self.snake[0]:
+                self.feeding_moves = 0
+
                 self.grid[snake_next[1]][snake_next[0]] = Cell.FULL
                 self.snake.append(snake_next)
                 self.apple = self.random_apple()
+        
+        self.total_moves += 1
+        self.feeding_moves += 1
 
-    def act(self, action: Action):
+    def update(self):
+
+        action = self.controler.compute_action(self.grid, self.snake, self.apple)
         if action == Action.LEFT:
             self.move((-1, 0))
         elif action == Action.RIGHT:
@@ -89,18 +91,9 @@ class Game(WindowComponent):
             self.move((0, -1))
         elif action == Action.DOWN:
             self.move((0, 1))
+        
+        return self.is_over
 
-    def update(self, dt: float):
-
-        self.act_timer += dt
-        if self.act_timer >= Game.ACT_DELAY:
-            action = self.controler.compute_action(self.grid, self.snake, self.apple)
-
-            if (action != Action.NONE):
-                self.act_timer = 0
-                self.act(action)
-
-    
     def cell_to_screen(self, cell_position: Vector2) -> Vector2:
         return (cell_position[0] * self.cell_width, cell_position[1] * self.cell_height)
     
@@ -110,15 +103,18 @@ class Game(WindowComponent):
 
     def display(self):
         # Background
-        super().display()
+        if not self.is_over:
+            super().display()
+        else:
+            self.surface.fill(self.OVER_COLOR)
 
         # Grid lines
         for row in range(Game.GRID_ROWS):
-            for col in range(Game.GRID_COLUMNS):
+            """for col in range(Game.GRID_COLUMNS):
                 row_end =  (row + 1) * self.cell_height
                 col_end = (col + 1) * self.cell_width
                 pygame.draw.line(self.surface, Game.LINE_COLOR, (0, row_end), (col_end, row_end), Game.LINE_WIDTH)
-                pygame.draw.line(self.surface, Game.LINE_COLOR, (col_end, 0), (col_end, row_end), Game.LINE_WIDTH)
+                pygame.draw.line(self.surface, Game.LINE_COLOR, (col_end, 0), (col_end, row_end), Game.LINE_WIDTH)"""
             pygame.draw.rect(self.surface, Game.LINE_COLOR, (0, 0, self.width-1, self.height-Game.LINE_WIDTH), Game.LINE_WIDTH)
 
         # Snake

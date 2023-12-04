@@ -1,3 +1,5 @@
+import math
+import random
 import pygame
 from enum import Enum
 from typing import List, Tuple, Union, TypeVar, Callable

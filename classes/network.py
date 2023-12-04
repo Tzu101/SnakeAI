@@ -1,5 +1,3 @@
-import math
-import random
 from classes.util import *
 
 
@@ -36,8 +34,9 @@ class Layer:
         values: list[float] = []
         for neuron in self.neurons:
             value = neuron.compute(inputs)
-            #value = self.activation(value)
             values.append(value)
+
+        values = self.activation(values)
         return values
 
 
@@ -55,10 +54,11 @@ class Network:
     @staticmethod
     def initRand():
         def initRandWeights(size: int):
-            return [random.random() for _ in range(size)]
+            return [random.random() * 2 - 1 for _ in range(size)]
         
         def initRandBias(size: int):
-            return random.random() * size / 2 - size / 4
+            size_sqrt = size**0.5
+            return (random.random() - 0.5) * size_sqrt
         
         return initRandWeights, initRandBias
 
@@ -78,10 +78,12 @@ class Network:
     
     @staticmethod
     def softmax(values: List[float]) -> List[float]:
+        max_value = max(values)
+
         exp_values: List[float] = []
         exp_sum = 0
         for value in values:
-            exp_value = math.exp(value)
+            exp_value = math.exp(value - max_value)
             exp_values.append(exp_value)
             exp_sum += exp_value
 
@@ -89,6 +91,10 @@ class Network:
         for exp_value in exp_values:
             new_values.append(exp_value / exp_sum)
         return new_values
+
+    @staticmethod
+    def none(values: List[float]) -> List[float]:
+        return values
 
     def __init__(self, input_size):
         self.input_size = input_size
@@ -147,11 +153,13 @@ class GeneticAlgorithm:
                 neuron = layer.neurons[n]
 
                 if random.random() < chance:
-                    neuron.bias *= random.random() * 2
+                    neuron.bias += random.random() - 0.5
+                    #neuron.bias *= random.random() * 2
 
                 for w in range(len(neuron.weights)):
                     if random.random() < chance:
-                        neuron.weights[w] *= random.random() * 2
+                        neuron.weights[w] += random.random() - 0.5
+                        #neuron.weights[w] *= random.random() * 2
 
         return network
     
@@ -169,7 +177,7 @@ class GeneticAlgorithm:
             population.append(self.network_constructor())
         return population
     
-    def train(self, inputs: Array2D[float], expected_outputs: Array2D[float], score_function: ScoreFunction, score_ascending: bool = True):
+    def train(self, inputs: Array2D[float], expected_outputs: Array2D[float], score_function: ScoreFunction, score_ascending: bool = True) -> Union[Network, None]:
         population = self.prepare_population()
         best_agent = None
 
@@ -187,15 +195,12 @@ class GeneticAlgorithm:
             sorted_agent_scores = sorted(agent_scores, key=lambda x: x[1])
             sorted_agents = [agent for agent, _ in sorted_agent_scores]
 
-            errors = [error for _, error in sorted_agent_scores]
-
             if score_ascending:
                 survivors = sorted_agents[:self.survival_size]
-                # best_agent = survivors[0]
-                print(" Error: ", errors[:self.survival_size][0])
+                best_agent = survivors[0]
             else:
                 survivors = sorted_agents[-self.survival_size:]
-                print(" Error: ", errors[-self.survival_size:][0])
+                best_agent = survivors[-1]
 
             new_generation = []
             for _ in range(self.population_size - self.survival_size):
@@ -209,3 +214,5 @@ class GeneticAlgorithm:
                 GeneticAlgorithm.crossover(new_agent, *parent_agents)    
                 GeneticAlgorithm.mutation(new_agent, self.mutation_chance)
             population = [*survivors, *new_generation]
+    
+        return best_agent
