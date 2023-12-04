@@ -10,8 +10,8 @@ if __name__ == "__main__":
 
     def make_network():
         network = Network(2)
-        network.layer(4, Network.initRand, Network.sigmoid)
-        network.layer(1, Network.initRand, Network.sigmoid)
+        network.layer(4, Network.initAbsRand, Network.none)
+        network.layer(1, Network.initAbsRand, Network.none)
         return network
 
     train_inputs: Array2D[float] = []
@@ -23,7 +23,7 @@ if __name__ == "__main__":
         train_inputs.append([x, y])
         train_outputs.append([x + y])
 
-    gen_alg = GeneticAlgorithm(100, 10, 10, 2, 0.01, make_network)
+    gen_alg = GeneticAlgorithm(100, 10, 10, 2, 0.1, make_network)
     best_agent = gen_alg.train(train_inputs, train_outputs, GeneticAlgorithm.absolute_error)
 
     if best_agent:

@@ -40,8 +40,19 @@ class Game(WindowComponent):
         self.grid[self.snake[0][1]][self.snake[0][0]] = Cell.FULL
         self.apple = self.random_apple()
 
+        self.move_limit = 2*Game.CELL_COUNT**0.5
+        self.total_lives = 10
+        self.lives = self.total_lives
+
         self.total_moves = 0
-        self.feeding_moves = 0
+        self.current_moves = 0
+        self.moves_since_eat = 0
+
+        self.max_apples = 0
+        self.total_apples = 0
+        self.current_apples = 0
+
+        self.score = 0
         self.is_over = False
     
     def reset(self):
@@ -50,6 +61,25 @@ class Game(WindowComponent):
         self.snake: List[Vector2] = [Game.random_position()]
         self.grid[self.snake[0][1]][self.snake[0][0]] = Cell.FULL
         self.apple = self.random_apple()
+    
+    def death(self):
+        self.total_moves += self.current_moves
+        self.current_moves = 0
+
+        self.max_apples = max(self.max_apples, self.current_apples)
+        self.total_apples += self.current_apples
+        self.current_apples = 0
+
+        self.lives -= 1
+        if self.lives > 0:
+            self.reset()
+        else:
+            self.is_over = True
+
+            moves_per_apple = self.total_moves / (self.total_apples + 1)
+            apples_per_life = self.total_apples / (self.total_lives + 1)
+            self.score = self.max_apples * (self.max_apples - apples_per_life) - moves_per_apple**1.5
+
 
     def move(self, direction: Vector2):
         new_x = self.snake[0][0] + direction[0]
@@ -59,9 +89,9 @@ class Game(WindowComponent):
             not 0 <= new_x < Game.GRID_COLUMNS or 
             not 0 <= new_y < Game.GRID_ROWS or 
             self.grid[new_y][new_x] == Cell.FULL or 
-            len(self.snake) + 2*Game.CELL_COUNT**0.5 < self.feeding_moves
+            self.current_apples + self.move_limit < self.moves_since_eat
             ):
-            self.is_over = True
+            self.death()
         else:
             snake_next = (new_x, new_y)
             self.grid[new_y][new_x] = Cell.FULL
@@ -71,16 +101,20 @@ class Game(WindowComponent):
                 self.snake[s], snake_next = snake_next, self.snake[s]
             
             if self.apple == self.snake[0]:
-                self.feeding_moves = 0
+                self.current_apples += 1
+                self.moves_since_eat = 0
 
                 self.grid[snake_next[1]][snake_next[0]] = Cell.FULL
                 self.snake.append(snake_next)
                 self.apple = self.random_apple()
-        
-        self.total_moves += 1
-        self.feeding_moves += 1
 
-    def update(self):
+        self.current_moves += 1
+        self.moves_since_eat += 1
+
+    def play(self):
+
+        if self.is_over:
+            return
 
         action = self.controler.compute_action(self.grid, self.snake, self.apple)
         if action == Action.LEFT:
@@ -92,8 +126,6 @@ class Game(WindowComponent):
         elif action == Action.DOWN:
             self.move((0, 1))
         
-        return self.is_over
-
     def cell_to_screen(self, cell_position: Vector2) -> Vector2:
         return (cell_position[0] * self.cell_width, cell_position[1] * self.cell_height)
     

@@ -8,9 +8,9 @@ from classes.controler import ManualControler, NeuralControler
 
 class Window:
 	PANEL_HEIGHT = 100
-	GAMEPLAY_WIDTH = 800
-	GAMEPLAY_HEIGHT = 800
-	GAME_COLUMNS = 5
+	GAMEPLAY_WIDTH = 1200
+	GAMEPLAY_HEIGHT = 600
+	GAME_COLUMNS = 10
 	GAME_ROWS = 5
 	GAME_SPEED = 0
 
@@ -22,11 +22,11 @@ class Window:
 
 	@staticmethod
 	def simple_network() -> Network:
-		network = Network(8)
-		network.layer(7, Network.initRand, Network.sigmoid)
-		network.layer(6, Network.initRand, Network.sigmoid)
-		network.layer(5, Network.initRand, Network.sigmoid)
-		network.layer(4, Network.initRand, Network.none)
+		network = Network(12)
+		network.layer(20, Network.initNegRand, Network.sigmoid)
+		network.layer(20, Network.initNegRand, Network.sigmoid)
+		network.layer(20, Network.initNegRand, Network.sigmoid)
+		network.layer(4, Network.initNegRand, Network.none)
 		return network
 	
 	def __init__(self):
@@ -35,7 +35,7 @@ class Window:
 		self.panel: Panel = Panel(Window.SCREEN_WIDTH, Window.PANEL_HEIGHT)
 
 		self.population_size = Window.GAME_COLUMNS * Window.GAME_ROWS
-		self.survival_size = self.population_size // 2
+		self.survival_size = self.population_size // 4
 
 		self.game_timer = 0
 		self.game_delay = Window.GAME_SPEED / self.population_size
@@ -54,6 +54,7 @@ class Window:
 		self.clock = pygame.time.Clock()
 
 		self.is_running = True
+		self.is_render = True
 		self.delta_time = 0
 
 	def iterate_population(self):
@@ -61,12 +62,16 @@ class Window:
 
 		scores = []
 		for game in self.games:
-			scores.append((len(game.snake) - 1) * game.feeding_moves)
+			scores.append(game.score)
 
 		agent_scores = list(zip(scores, self.networks))
 		sorted_agent_scores = sorted(agent_scores, key=lambda x: x[0])
 		sorted_agents = [network for _, network in sorted_agent_scores]
 		surviving_agents = sorted_agents[-self.survival_size:]
+
+		print(max([game.max_apples for game in self.games]))
+		print(sorted_agent_scores[-1][0])
+		print()
 
 		self.games = []
 		self.networks = []
@@ -78,7 +83,7 @@ class Window:
 			parent2 = surviving_agents[random.randint(0, self.survival_size-1)]
 
 			GeneticAlgorithm.crossover(new_agent, parent1, parent2)    
-			GeneticAlgorithm.mutation(new_agent, 0.1)
+			GeneticAlgorithm.mutation(new_agent, 0.01)
 
 			new_game = Game(Window.GAME_WIDTH, Window.GAME_HEIGHT, NeuralControler(new_agent))
 			self.games.append(new_game)
@@ -92,14 +97,18 @@ class Window:
 	def run_games(self):
 		self.game_timer += self.delta_time
 		if self.game_timer >= self.game_delay:
-			self.game_timer -= self.game_delay
+			game = self.games[self.current_game]
 
-			if not self.games[self.current_game].is_over:
-				self.games_over += int(self.games[self.current_game].update())
+			if not game.is_over:
+				self.game_timer = 0
+				game.play()
+
+				if game.is_over:
+					self.games_over += 1
 
 				if self.games_over >= self.population_size:
 					self.current_step = 0
-					self.iterate_population()
+					self.iterate_population()				
 
 			self.current_game += 1
 			if self.current_game >= self.population_size:
@@ -109,6 +118,9 @@ class Window:
 		for event in pygame.event.get():			
 			if event.type == pygame.QUIT:
 				self.is_running = False
+			elif event.type == pygame.KEYDOWN:
+				if event.key == pygame.K_SPACE:
+					self.is_render = not self.is_render
 		
 		self.run_games()
 
@@ -119,7 +131,7 @@ class Window:
 		for game_index in range(self.population_size):
 			game = self.games[game_index]
 			game.display()
-			self.screen.blit(game.surface, (game_index % Window.GAME_ROWS * Window.GAME_WIDTH, game_index // Window.GAME_ROWS * Window.GAME_HEIGHT))
+			self.screen.blit(game.surface, (game_index % Window.GAME_COLUMNS * Window.GAME_WIDTH, game_index // Window.GAME_COLUMNS * Window.GAME_HEIGHT))
 
 		# Panel
 		self.panel.display()
@@ -131,5 +143,6 @@ class Window:
 	def run(self):
 		while self.is_running:
 			self.update()
-			self.render()
+			if self.is_render:
+				self.render()
 		pygame.quit()

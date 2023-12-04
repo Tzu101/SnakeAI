@@ -52,7 +52,18 @@ class Network:
         return initZeroWeights, initZeroBias
         
     @staticmethod
-    def initRand():
+    def initAbsRand():
+        def initRandWeights(size: int):
+            return [random.random() for _ in range(size)]
+        
+        def initRandBias(size: int):
+            size_sqrt = size**0.5
+            return random.random() * size_sqrt / 2
+        
+        return initRandWeights, initRandBias
+    
+    @staticmethod
+    def initNegRand():
         def initRandWeights(size: int):
             return [random.random() * 2 - 1 for _ in range(size)]
         
@@ -147,19 +158,22 @@ class GeneticAlgorithm:
     
     @staticmethod
     def mutation(network: Network, chance: float):
+        input_size: int = network.input_size
         for l in range(len(network.layers)):
             layer = network.layers[l]
             for n in range(len(layer.neurons)):
                 neuron = layer.neurons[n]
 
                 if random.random() < chance:
-                    neuron.bias += random.random() - 0.5
+                    neuron.bias += (random.random() - 0.5) * input_size**0.5
                     #neuron.bias *= random.random() * 2
 
                 for w in range(len(neuron.weights)):
                     if random.random() < chance:
-                        neuron.weights[w] += random.random() - 0.5
+                        neuron.weights[w] = 2 * random.random() - 1
+                        #neuron.weights[w] += 2 * random.random() - 1
                         #neuron.weights[w] *= random.random() * 2
+            input_size = layer.size
 
         return network
     
