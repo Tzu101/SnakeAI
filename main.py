@@ -1,5 +1,4 @@
 import time
-import random
 from classes.util import *
 from classes.window import Window
 

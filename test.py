@@ -1,27 +1,17 @@
-import time
-import random
 from classes.util import *
-from classes.network import Network, GeneticAlgorithm
+from classes.network import GeneticAlgorithm, NeuralNetwork
 
 
 # Testing the neural network genetic algorithm
 if __name__ == "__main__":
-    random.seed(time.time())
-
     def make_network():
-        network = Network(2)
-        network.layer(4, Network.initAbsRand, Network.none)
-        network.layer(1, Network.initAbsRand, Network.none)
+        network = NeuralNetwork(2)
+        network.layer(4, NeuralNetwork.sigmoid)
+        network.layer(1, NeuralNetwork.none)
         return network
 
-    train_inputs: Array2D[float] = []
-    train_outputs: Array2D[float] = []
-
-    for t in range(100):
-        x = random.randint(0, 9)
-        y = random.randint(0, 9)
-        train_inputs.append([x, y])
-        train_outputs.append([x + y])
+    train_inputs = np.random.randint(0, 10, size=(1000, 2))
+    train_outputs = np.sum(train_inputs, axis=1)
 
     gen_alg = GeneticAlgorithm(100, 10, 10, 2, 0.1, make_network)
     best_agent = gen_alg.train(train_inputs, train_outputs, GeneticAlgorithm.absolute_error)
@@ -44,4 +34,4 @@ if __name__ == "__main__":
 
             num1 = float(user_input[0])
             num2 = float(user_input[1])
-            print("Result: ", best_agent.compute([num1, num2]), "\n")
+            print("Result: ", best_agent.compute(np.array([num1, num2])), "\n")

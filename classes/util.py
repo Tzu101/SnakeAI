@@ -1,6 +1,7 @@
 import math
 import random
 import pygame
+import numpy as np
 from enum import Enum
 from typing import List, Tuple, Union, TypeVar, Callable
 

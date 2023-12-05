@@ -7,7 +7,7 @@ class Game(WindowComponent):
     GRID_COLUMNS = 10
     GRID_ROWS = 10
     LINE_WIDTH = 1
-    CELL_COUNT = GRID_COLUMNS * GRID_ROWS
+    GRID_SIZE = GRID_COLUMNS * GRID_ROWS
 
     BACKGROUND_COLOR = (40, 40, 40)
     LINE_COLOR = (80, 80, 80)
@@ -28,6 +28,21 @@ class Game(WindowComponent):
             apple = Game.random_position()
         return apple
 
+    def random_snake(self, length: int=1) -> List[Vector2]:
+        if length > Game.GRID_COLUMNS:
+            length = Game.GRID_COLUMNS
+
+        snake: List[Vector2] = []
+        for s in range(length):
+            snake_body = (Game.GRID_COLUMNS // 2 - length // 2 + s, Game.GRID_ROWS-1)
+            snake.append(snake_body)
+            self.grid_add_snake(snake_body)
+        
+        return snake
+
+    def grid_add_snake(self, snake_body: Vector2):
+        self.grid[snake_body[1]][snake_body[0]] = Cell.FULL
+
     def __init__(self, width: int, height: int, controler: Controler):
         super().__init__(width, height)
         self.controler = controler
@@ -36,11 +51,10 @@ class Game(WindowComponent):
         self.cell_height = self.height // Game.GRID_ROWS
         self.grid: Array2D[Cell] = [[Cell.EMPTY for _ in range(Game.GRID_COLUMNS)] for _ in range(Game.GRID_ROWS)]
         
-        self.snake: List[Vector2] = [Game.random_position()]
-        self.grid[self.snake[0][1]][self.snake[0][0]] = Cell.FULL
+        self.snake: List[Vector2] = self.random_snake()
         self.apple = self.random_apple()
 
-        self.move_limit = 2*Game.CELL_COUNT**0.5
+        self.move_limit = 2*Game.GRID_SIZE**0.5
         self.total_lives = 10
         self.lives = self.total_lives
 
@@ -58,13 +72,13 @@ class Game(WindowComponent):
     def reset(self):
         self.grid: Array2D[Cell] = [[Cell.EMPTY for _ in range(Game.GRID_COLUMNS)] for _ in range(Game.GRID_ROWS)]
         
-        self.snake: List[Vector2] = [Game.random_position()]
-        self.grid[self.snake[0][1]][self.snake[0][0]] = Cell.FULL
+        self.snake: List[Vector2] = self.random_snake()
         self.apple = self.random_apple()
     
     def death(self):
         self.total_moves += self.current_moves
         self.current_moves = 0
+        self.moves_since_eat = 0
 
         self.max_apples = max(self.max_apples, self.current_apples)
         self.total_apples += self.current_apples
@@ -76,10 +90,16 @@ class Game(WindowComponent):
         else:
             self.is_over = True
 
-            moves_per_apple = self.total_moves / (self.total_apples + 1)
-            apples_per_life = self.total_apples / (self.total_lives + 1)
-            self.score = self.max_apples * (self.max_apples - apples_per_life) - moves_per_apple**1.5
-
+            """
+            moves_per_apple = self.total_moves / self.total_apples if self.total_apples > 0 else 2*self.total_moves
+            moves_per_life = self.total_moves / self.total_lives
+            apples_per_life = self.total_apples / self.total_lives
+            self.score = self.max_apples * (self.max_apples - apples_per_life) - normalized_moves_per_apple**1.5 + (moves_per_life / self.move_limit)"""
+            # self.total_moves += 1
+            #moves_per_apple = self.total_moves / self.total_apples if self.total_apples > 0 else 2*self.total_moves
+            #apples_per_life = self.total_apples / self.total_lives
+            # self.score = self.max_apples * (self.max_apples - apples_per_life) #/ moves_per_apple
+            self.score = self.max_apples
 
     def move(self, direction: Vector2):
         new_x = self.snake[0][0] + direction[0]
@@ -93,6 +113,9 @@ class Game(WindowComponent):
             ):
             self.death()
         else:
+            self.current_moves += 1
+            self.moves_since_eat += 1
+
             snake_next = (new_x, new_y)
             self.grid[new_y][new_x] = Cell.FULL
             self.grid[self.snake[-1][1]][self.snake[-1][0]] = Cell.EMPTY
@@ -107,9 +130,6 @@ class Game(WindowComponent):
                 self.grid[snake_next[1]][snake_next[0]] = Cell.FULL
                 self.snake.append(snake_next)
                 self.apple = self.random_apple()
-
-        self.current_moves += 1
-        self.moves_since_eat += 1
 
     def play(self):
 

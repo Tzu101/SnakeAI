@@ -1,6 +1,6 @@
 from classes.util import *
 from classes.abstract import Controler
-from classes.network import Network
+from classes.network import NeuralNetwork
 
 
 class ManualControler(Controler):
@@ -25,7 +25,7 @@ class ManualControler(Controler):
 
 class NeuralControler(Controler):
 
-    def __init__(self, network: Network):
+    def __init__(self, network: NeuralNetwork):
         super().__init__()
         self.last_action = Action.NONE
         self.network = network
@@ -44,53 +44,92 @@ class NeuralControler(Controler):
 
         #manhattan_distance = float(abs(apple_x - snake_x) + abs(apple_y - snake_y))
 
-        """space_up = 0
+        wall_up = snake_y
+        snake_up = 10
         for y in range(snake_y, 0, -1):
             if grid[y-1][snake_x] == Cell.EMPTY:
-                space_up += 1
+                snake_up -= 1
             else:
+                snake_up = -snake_up
                 break
+        snake_up = max(snake_up, 0)
+        
+        apple_up = 10
+        if apple_y < snake_y:
+            apple_up = snake_y - apple_y
 
-        space_down = 0
+        wall_down = grid_height - snake_y - 1
+        snake_down = 10
         for y in range(snake_y, grid_height-1):
             if grid[y+1][snake_x] == Cell.EMPTY:
-                space_down += 1
+                snake_down -= 1
             else:
+                snake_down = -snake_down
                 break
+        snake_down = max(snake_down, 0)
 
-        space_left = 0
+        apple_down = 10
+        if apple_y > snake_y:
+            apple_down = apple_y - snake_y
+        
+        wall_left = snake_x
+        snake_left = 10
+
         for x in range(snake_x, 0, -1):
             if grid[snake_y][x-1] == Cell.EMPTY:
-                space_left += 1
+                snake_left -= 1
             else:
+                snake_left = -snake_left
                 break
+        snake_left = max(snake_left, 0)
 
-        space_right = 0
+        apple_left = 10
+        if apple_x < snake_x:
+            apple_left = snake_x - apple_x
+
+        wall_right = grid_width - snake_x - 1
+        snake_right = 10
         for x in range(snake_x, grid_width-1):
             if grid[snake_y][x+1] == Cell.EMPTY:
-                space_right += 1
+                snake_right -= 1
             else:
+                snake_right = -snake_right
                 break
-        
-        neural_input: List[float] = [snake_x, snake_y, space_up, space_down, space_left, space_right, apple_x, apple_y]"""
+        snake_right = max(snake_right, 0)
+
+        apple_right = 10
+        if apple_x > snake_x:
+            apple_right = apple_x - snake_x
+
+        neural_input: List[float] = [
+            wall_up, wall_down, wall_left, wall_right, 
+            snake_up, snake_down, snake_left, snake_right, 
+            apple_up, apple_down, apple_left, apple_right,
+        ]
 
         """neural_input: List[float] = []
         for y in range(grid_height):
-            pos_y = snake_y + y - grid_height // 2
             for x in range(grid_width):
-                pos_x = snake_x + x - grid_width // 2
-
-                if (not 0 <= pos_y < grid_height or
-                    not 0 <= pos_x < grid_width):
-                    neural_input.append(-1)
-                elif grid[pos_y][pos_x] == Cell.FULL:
-                    neural_input.append(-1)
-                elif pos_y == apple_y and pos_x == apple_x:
+                if grid[y][x] == Cell.FULL:
                     neural_input.append(1)
                 else:
-                    neural_input.append(0)"""
+                    neural_input.append(0)
         
-        danger_up = 0
+        snake_x_bin = [0 for _ in range(grid_width)]
+        snake_x_bin[snake_x] = 1
+
+        snake_y_bin = [0 for _ in range(grid_height)]
+        snake_y_bin[snake_y] = 1
+
+        apple_x_bin = [0 for _ in range(grid_width)]
+        apple_x_bin[apple_x] = 1
+
+        apple_y_bin = [0 for _ in range(grid_height)]
+        apple_y_bin[apple_y] = 1
+
+        neural_input = [*neural_input, *snake_x_bin, *snake_y_bin, *apple_x_bin, *apple_y_bin]"""
+        
+        """danger_up = 0
         if snake_y < 0 or grid[snake_y-1][snake_x] == Cell.FULL:
             danger_up = 1
 
@@ -138,11 +177,10 @@ class NeuralControler(Controler):
             danger_up, danger_down, danger_left, danger_right, 
             apple_up, apple_down, apple_left, apple_right, 
             last_up, last_down, last_left, last_right
-        ]
+        ]"""
         
-
-        output = self.network.compute(neural_input)
-        action_index = output.index(max(output))
+        output = self.network.compute(np.array(neural_input))
+        action_index = np.argmax(output)
 
         action = Action.NONE
         if action_index == 0:

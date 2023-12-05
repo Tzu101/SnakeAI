@@ -2,7 +2,7 @@ import random
 from classes.util import *
 from classes.game import Game
 from classes.panel import Panel
-from classes.network import Network, GeneticAlgorithm
+from classes.network import NeuralNetwork, GeneticAlgorithm
 from classes.controler import ManualControler, NeuralControler
 
 
@@ -12,7 +12,7 @@ class Window:
 	GAMEPLAY_HEIGHT = 600
 	GAME_COLUMNS = 10
 	GAME_ROWS = 5
-	GAME_SPEED = 0
+	GAME_SPEED = 0.2
 
 	GAME_WIDTH = GAMEPLAY_WIDTH // GAME_COLUMNS
 	GAME_HEIGHT = GAMEPLAY_HEIGHT // GAME_ROWS
@@ -21,12 +21,15 @@ class Window:
 	SCREEN_HEIGHT = GAMEPLAY_HEIGHT + PANEL_HEIGHT
 
 	@staticmethod
-	def simple_network() -> Network:
-		network = Network(12)
-		network.layer(20, Network.initNegRand, Network.sigmoid)
-		network.layer(20, Network.initNegRand, Network.sigmoid)
-		network.layer(20, Network.initNegRand, Network.sigmoid)
-		network.layer(4, Network.initNegRand, Network.none)
+	def simple_network() -> NeuralNetwork:
+		#network = Network(Game.CELL_COUNT + 2 * Game.GRID_ROWS + 2 * Game.GRID_COLUMNS)
+		network = NeuralNetwork(12)
+		#network.layer(60, Network.initNegRand, Network.tanh)
+		#network.layer(40, Network.initNegRand, Network.tanh)
+		network.layer(20, NeuralNetwork.relu)
+		network.layer(20, NeuralNetwork.relu)
+		network.layer(20, NeuralNetwork.relu)
+		network.layer(4, NeuralNetwork.none)
 		return network
 	
 	def __init__(self):
@@ -43,7 +46,7 @@ class Window:
 		self.network_constructor = Window.simple_network
 		self.games_over = 0
 
-		self.networks: List[Network] = []
+		self.networks: List[NeuralNetwork] = []
 		self.games: List[Game] = []
 		for _ in range(self.population_size):
 			network = self.network_constructor()
@@ -83,7 +86,7 @@ class Window:
 			parent2 = surviving_agents[random.randint(0, self.survival_size-1)]
 
 			GeneticAlgorithm.crossover(new_agent, parent1, parent2)    
-			GeneticAlgorithm.mutation(new_agent, 0.01)
+			GeneticAlgorithm.mutation(new_agent, 0.02)
 
 			new_game = Game(Window.GAME_WIDTH, Window.GAME_HEIGHT, NeuralControler(new_agent))
 			self.games.append(new_game)
@@ -121,6 +124,10 @@ class Window:
 			elif event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_SPACE:
 					self.is_render = not self.is_render
+					if self.is_render:
+						self.game_delay = Window.GAME_SPEED / self.population_size
+					else:
+						self.game_delay = 0
 		
 		self.run_games()
 
