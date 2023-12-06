@@ -1,150 +1,6 @@
 from classes.util import *
 
 
-WeightInit = Callable[[int], List[float]]
-BiasInit = Callable[[int], float]
-NeuronInit = Callable[[], Tuple[WeightInit, BiasInit]]
-ActivationFunction = Callable[[List[float]], List[float]]
-
-
-class Neuron:
-
-    def __init__(self, input_size: int, init_weight: WeightInit, init_bias: BiasInit):
-        self.weights = init_weight(input_size)
-        self.bias = init_bias(input_size)
-    
-    def compute(self, inputs: List[float]) -> float:
-        value = self.bias
-        for w in range(len(self.weights)):
-            value += self.weights[w] * inputs[w]
-        return value
-
-
-class Layer:
-    def __init__(self, size: int, input_size: int, init_function: NeuronInit, activation: ActivationFunction):
-        self.size = size
-        self.activation = activation
-
-        """self.neurons: List[Neuron] = []
-        for _ in range(self.size):
-            neuron = Neuron(input_size, *init_function())
-            self.neurons.append(neuron)"""
-        
-        self.weights: Array2D[float] = []
-        self.biases: List[float] = []
-        for _ in range(self.size):
-            self.weights.append(init_function()[0](input_size))
-            self.biases.append(init_function()[1](input_size))
-    
-    def compute(self, inputs: List[float]) -> List[float]:
-        """values: list[float] = []
-        for neuron in self.neurons:
-            value = neuron.compute(inputs)
-            values.append(value)"""
-
-        values: list[float] = []
-        for n in range(self.size):
-            values.append(0)
-            for w in range(len(self.weights[n])):
-                values[n] += self.weights[n][w] * inputs[w]
-            values[n] += self.biases[n]
-
-        values = self.activation(values)
-        return values
-
-
-class Network:
-    @staticmethod
-    def initZero():
-        def initZeroWeights(size: int) -> List[float]:
-            return [0 for _ in range(size)]
-        
-        def initZeroBias(size: int):
-            return 0
-        
-        return initZeroWeights, initZeroBias
-        
-    @staticmethod
-    def initAbsRand():
-        def initRandWeights(size: int):
-            return [random.random() for _ in range(size)]
-        
-        def initRandBias(size: int):
-            size_sqrt = size**0.5
-            return random.random() * size_sqrt / 2
-        
-        return initRandWeights, initRandBias
-    
-    @staticmethod
-    def initNegRand():
-        def initRandWeights(size: int):
-            return [random.random() * 2 - 1 for _ in range(size)]
-        
-        def initRandBias(size: int):
-            size_sqrt = size**0.5
-            return (random.random() - 0.5) * size_sqrt
-        
-        return initRandWeights, initRandBias
-
-    @staticmethod
-    def sigmoid(values: List[float]) -> List[float]:
-        new_values: List[float] = []
-        for value in values:
-            new_values.append(1 / (1 + math.exp(-value)))
-        return new_values
-
-    @staticmethod
-    def relu(values: List[float]) -> List[float]:
-        new_values: List[float] = []
-        for value in values:
-            new_values.append(max(0, value))
-        return new_values
-    
-    @staticmethod
-    def tanh(values: List[float]) -> List[float]:
-        new_values: List[float] = []
-        for value in values:
-            new_values.append(math.tanh(value))
-        return new_values
-    
-    @staticmethod
-    def softmax(values: List[float]) -> List[float]:
-        max_value = max(values)
-
-        exp_values: List[float] = []
-        exp_sum = 0
-        for value in values:
-            exp_value = math.exp(value - max_value)
-            exp_values.append(exp_value)
-            exp_sum += exp_value
-
-        new_values: List[float] = []
-        for exp_value in exp_values:
-            new_values.append(exp_value / exp_sum)
-        return new_values
-
-    @staticmethod
-    def none(values: List[float]) -> List[float]:
-        return values
-
-    def __init__(self, input_size):
-        self.input_size = input_size
-        self.layers: List[Layer] = []
-        self.outputs: List[float] = []
-    
-    def layer(self, size: int, init: NeuronInit, activation: ActivationFunction):
-        input_size = self.input_size if len(self.layers) == 0 else self.layers[-1].size
-        layer = Layer(size, input_size, init, activation)
-        self.layers.append(layer)
-
-    def compute(self, inputs: List[float]):
-        for layer in self.layers:
-            inputs = layer.compute(inputs)
-        self.outputs = inputs
-
-        return self.outputs.copy()
-
-
 LayerActivation = Callable[[np.ndarray], np.ndarray]
 LayerInit = Callable[..., np.ndarray]
 
@@ -157,6 +13,10 @@ class NeuralNetwork:
     @staticmethod
     def relu(values: np.ndarray) -> np.ndarray:
         return np.maximum(0, values)
+    
+    @staticmethod
+    def leaky_relu(values: np.ndarray) -> np.ndarray:
+        return np.maximum(0.1*values, values)
     
     @staticmethod
     def tanh(values: np.ndarray) -> np.ndarray:
@@ -211,28 +71,32 @@ class GeneticAlgorithm:
 
     @staticmethod
     def crossover(network: NeuralNetwork, *parent_networks: NeuralNetwork):
-        parent_chance = 1 / len(parent_networks)
+        parent_networks_length = len(parent_networks)
+        parent_chance = 1 / parent_networks_length
 
         for l in range(len(network.layers)):
             layer = network.layers[l]
 
+            parent_biases = []
+            for parent_network in parent_networks:
+                parent_biases.append(parent_network.layers[l].biases)
+            parent_biases = np.array(parent_biases)
+
+            rand_bias_indices = np.random.choice(np.arange(parent_networks_length), size=layer.biases.size)
+            layer.biases = np.where(rand_bias_indices, *parent_biases)
+
             for n in range(layer.size):
-                parent_index = math.floor(random.random() // parent_chance)
-                layer.biases[n] = parent_networks[parent_index].layers[l].biases[n]
+                parent_weights = []
+                for parent_network in parent_networks:
+                    parent_weights.append(parent_network.layers[l].weights[n])
+                parent_weights = np.array(parent_weights)
+
+                rand_weight_indices = np.random.choice(np.arange(parent_networks_length), size=layer.weights[n].size)
+                layer.weights[n] = np.where(rand_weight_indices, *parent_weights)
 
                 for w in range(len(layer.weights[n])):
                     parent_index = math.floor(random.random() // parent_chance)
                     layer.weights[n][w] = parent_networks[parent_index].layers[l].weights[n][w]
-
-            """for n in range(len(layer.neurons)):
-                neuron = layer.neurons[n]
-
-                parent_index = math.floor(random.random() // parent_chance)
-                neuron.bias = parent_networks[parent_index].layers[l].neurons[n].bias
-
-                for w in range(len(neuron.weights)):
-                    parent_index = math.floor(random.random() // parent_chance)
-                    neuron.weights[w] = parent_networks[parent_index].layers[l].neurons[n].weights[w]"""
 
         return network
     
@@ -242,23 +106,15 @@ class GeneticAlgorithm:
         for l in range(len(network.layers)):
             layer = network.layers[l]
 
+            mutated_bias_indices = np.where(np.random.choice(2, layer.biases.size, p=[1-chance, chance]) == 1)[0]
+            layer.biases[mutated_bias_indices] += np.random.uniform(low=-1, high=1, size=mutated_bias_indices.size)
+            layer.biases[mutated_bias_indices] = np.clip(layer.biases[mutated_bias_indices], -bias_clamp, bias_clamp)
+
             for n in range(layer.size):
-                if random.random() < chance:
-                    layer.biases[n] = max(min(layer.biases[n] + random.random() - 0.5, bias_clamp), -bias_clamp)
+                mutated_weight_indices = np.where(np.random.choice(2, layer.weights[n].size, p=[1-chance, chance]) == 1)[0]
+                layer.weights[n][mutated_weight_indices] += np.random.uniform(low=-0.5, high=0.5, size=mutated_weight_indices.size)
+                layer.weights[n][mutated_weight_indices] = np.tanh(layer.weights[n][mutated_weight_indices])
 
-                for w in range(len(layer.weights[n])):
-                    if random.random() < chance:
-                        layer.weights[n][w] = math.tanh(layer.weights[n][w] + random.random() - 0.5)
-
-            """for n in range(len(layer.neurons)):
-                neuron = layer.neurons[n]
-
-                if random.random() < chance:
-                    neuron.bias = max(min(neuron.bias + random.random() - 0.5, bias_clamp), -bias_clamp)
-
-                for w in range(len(neuron.weights)):
-                    if random.random() < chance:
-                        neuron.weights[w] = math.tanh(neuron.weights[w] + random.random() - 0.5)"""
             bias_clamp = layer.size**0.5
 
         return network

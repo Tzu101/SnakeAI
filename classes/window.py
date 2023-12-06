@@ -10,9 +10,9 @@ class Window:
 	PANEL_HEIGHT = 100
 	GAMEPLAY_WIDTH = 1200
 	GAMEPLAY_HEIGHT = 600
-	GAME_COLUMNS = 10
-	GAME_ROWS = 5
-	GAME_SPEED = 0.2
+	GAME_COLUMNS = 8
+	GAME_ROWS = 4
+	GAME_SPEED = 0.1
 
 	GAME_WIDTH = GAMEPLAY_WIDTH // GAME_COLUMNS
 	GAME_HEIGHT = GAMEPLAY_HEIGHT // GAME_ROWS
@@ -22,14 +22,30 @@ class Window:
 
 	@staticmethod
 	def simple_network() -> NeuralNetwork:
-		#network = Network(Game.CELL_COUNT + 2 * Game.GRID_ROWS + 2 * Game.GRID_COLUMNS)
+		"""network = NeuralNetwork(9+4)
+		network.layer(8, NeuralNetwork.leaky_relu)
+		network.layer(8, NeuralNetwork.leaky_relu)
+		network.layer(4, NeuralNetwork.none)"""
+
+		"""network = NeuralNetwork(25+4)
+		network.layer(16, NeuralNetwork.leaky_relu)
+		network.layer(16, NeuralNetwork.leaky_relu)
+		network.layer(4, NeuralNetwork.none)"""
+
+		"""network = NeuralNetwork(49+4)
+		network.layer(16, NeuralNetwork.leaky_relu)
+		network.layer(16, NeuralNetwork.leaky_relu)
+		network.layer(4, NeuralNetwork.none)"""
+
+		"""network = NeuralNetwork(12)
+		network.layer(4, NeuralNetwork.leaky_relu)
+		network.layer(4, NeuralNetwork.none)"""
+
 		network = NeuralNetwork(12)
-		#network.layer(60, Network.initNegRand, Network.tanh)
-		#network.layer(40, Network.initNegRand, Network.tanh)
-		network.layer(20, NeuralNetwork.relu)
-		network.layer(20, NeuralNetwork.relu)
-		network.layer(20, NeuralNetwork.relu)
+		network.layer(8, NeuralNetwork.leaky_relu)
+		#network.layer(8, NeuralNetwork.leaky_relu)
 		network.layer(4, NeuralNetwork.none)
+
 		return network
 	
 	def __init__(self):
@@ -38,7 +54,8 @@ class Window:
 		self.panel: Panel = Panel(Window.SCREEN_WIDTH, Window.PANEL_HEIGHT)
 
 		self.population_size = Window.GAME_COLUMNS * Window.GAME_ROWS
-		self.survival_size = self.population_size // 4
+		self.survival_size = self.population_size // 3
+		self.iteration_count = 0
 
 		self.game_timer = 0
 		self.game_delay = Window.GAME_SPEED / self.population_size
@@ -66,36 +83,39 @@ class Window:
 		scores = []
 		for game in self.games:
 			scores.append(game.score)
+		scores = np.array(scores)
 
-		agent_scores = list(zip(scores, self.networks))
-		sorted_agent_scores = sorted(agent_scores, key=lambda x: x[0])
-		sorted_agents = [network for _, network in sorted_agent_scores]
-		surviving_agents = sorted_agents[-self.survival_size:]
+		sorted_score_indices = np.argsort(scores)
+		surviving_scores = np.array(scores)[sorted_score_indices][-self.survival_size:]
+		surviving_networks = np.array(self.networks)[sorted_score_indices][-self.survival_size:]
 
-		print(max([game.max_apples for game in self.games]))
-		print(sorted_agent_scores[-1][0])
+		max_lenghts = np.array([game.max_length for game in self.games])
+		print("Generation ", self.iteration_count)
+		print("Max size:", np.max(max_lenghts), "| Average size:", np.sum(max_lenghts) // max_lenghts.size, "| Max fitness:", int(np.max(surviving_scores)), "| Average fitness:", int(np.sum(surviving_scores) // surviving_scores.size))
 		print()
 
 		self.games = []
 		self.networks = []
 		for _ in range(self.population_size - self.survival_size):
-			new_agent = self.network_constructor()
-			self.networks.append(new_agent)
+			new_network = self.network_constructor()
+			self.networks.append(new_network)
 
-			parent1 = surviving_agents[random.randint(0, self.survival_size-1)]
-			parent2 = surviving_agents[random.randint(0, self.survival_size-1)]
+			parent1 = surviving_networks[random.randint(0, self.survival_size-1)]
+			parent2 = surviving_networks[random.randint(0, self.survival_size-1)]
 
-			GeneticAlgorithm.crossover(new_agent, parent1, parent2)    
-			GeneticAlgorithm.mutation(new_agent, 0.02)
+			GeneticAlgorithm.crossover(new_network, parent1, parent2)    
+			GeneticAlgorithm.mutation(new_network, 0.05)
 
-			new_game = Game(Window.GAME_WIDTH, Window.GAME_HEIGHT, NeuralControler(new_agent))
+			new_game = Game(Window.GAME_WIDTH, Window.GAME_HEIGHT, NeuralControler(new_network))
 			self.games.append(new_game)
 
-		for surviving_agent in surviving_agents:
-			self.networks.append(surviving_agent)
+		for surviving_network in surviving_networks:
+			self.networks.append(surviving_network)
 
-			surviving_game = Game(Window.GAME_WIDTH, Window.GAME_HEIGHT, NeuralControler(surviving_agent))
+			surviving_game = Game(Window.GAME_WIDTH, Window.GAME_HEIGHT, NeuralControler(surviving_network))
 			self.games.append(surviving_game)
+		
+		self.iteration_count += 1
 	
 	def run_games(self):
 		self.game_timer += self.delta_time
@@ -127,7 +147,7 @@ class Window:
 					if self.is_render:
 						self.game_delay = Window.GAME_SPEED / self.population_size
 					else:
-						self.game_delay = 0
+						self.game_delay = 0.0
 		
 		self.run_games()
 

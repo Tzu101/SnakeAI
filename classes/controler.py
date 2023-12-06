@@ -37,15 +37,17 @@ class NeuralControler(Controler):
 
         snake_x = snake[0][0]
         snake_y = snake[0][1]
-        #snake_length = len(snake)
 
         apple_x = apple[0]
         apple_y = apple[1]
 
-        #manhattan_distance = float(abs(apple_x - snake_x) + abs(apple_y - snake_y))
-
         wall_up = snake_y
-        snake_up = 10
+
+        apple_up = grid_height
+        if apple_y < snake_y:
+            apple_up = snake_y - apple_y
+
+        snake_up = grid_height
         for y in range(snake_y, 0, -1):
             if grid[y-1][snake_x] == Cell.EMPTY:
                 snake_up -= 1
@@ -53,13 +55,14 @@ class NeuralControler(Controler):
                 snake_up = -snake_up
                 break
         snake_up = max(snake_up, 0)
-        
-        apple_up = 10
-        if apple_y < snake_y:
-            apple_up = snake_y - apple_y
 
         wall_down = grid_height - snake_y - 1
-        snake_down = 10
+
+        apple_down = grid_height
+        if apple_y > snake_y:
+            apple_down = apple_y - snake_y
+
+        snake_down = grid_height
         for y in range(snake_y, grid_height-1):
             if grid[y+1][snake_x] == Cell.EMPTY:
                 snake_down -= 1
@@ -68,13 +71,13 @@ class NeuralControler(Controler):
                 break
         snake_down = max(snake_down, 0)
 
-        apple_down = 10
-        if apple_y > snake_y:
-            apple_down = apple_y - snake_y
-        
         wall_left = snake_x
-        snake_left = 10
 
+        apple_left = grid_width
+        if apple_x < snake_x:
+            apple_left = snake_x - apple_x
+
+        snake_left = grid_width
         for x in range(snake_x, 0, -1):
             if grid[snake_y][x-1] == Cell.EMPTY:
                 snake_left -= 1
@@ -83,12 +86,13 @@ class NeuralControler(Controler):
                 break
         snake_left = max(snake_left, 0)
 
-        apple_left = 10
-        if apple_x < snake_x:
-            apple_left = snake_x - apple_x
-
         wall_right = grid_width - snake_x - 1
-        snake_right = 10
+
+        apple_right = grid_width
+        if apple_x > snake_x:
+            apple_right = apple_x - snake_x
+
+        snake_right = grid_width
         for x in range(snake_x, grid_width-1):
             if grid[snake_y][x+1] == Cell.EMPTY:
                 snake_right -= 1
@@ -97,37 +101,11 @@ class NeuralControler(Controler):
                 break
         snake_right = max(snake_right, 0)
 
-        apple_right = 10
-        if apple_x > snake_x:
-            apple_right = apple_x - snake_x
-
         neural_input: List[float] = [
             wall_up, wall_down, wall_left, wall_right, 
             snake_up, snake_down, snake_left, snake_right, 
             apple_up, apple_down, apple_left, apple_right,
         ]
-
-        """neural_input: List[float] = []
-        for y in range(grid_height):
-            for x in range(grid_width):
-                if grid[y][x] == Cell.FULL:
-                    neural_input.append(1)
-                else:
-                    neural_input.append(0)
-        
-        snake_x_bin = [0 for _ in range(grid_width)]
-        snake_x_bin[snake_x] = 1
-
-        snake_y_bin = [0 for _ in range(grid_height)]
-        snake_y_bin[snake_y] = 1
-
-        apple_x_bin = [0 for _ in range(grid_width)]
-        apple_x_bin[apple_x] = 1
-
-        apple_y_bin = [0 for _ in range(grid_height)]
-        apple_y_bin[apple_y] = 1
-
-        neural_input = [*neural_input, *snake_x_bin, *snake_y_bin, *apple_x_bin, *apple_y_bin]"""
         
         """danger_up = 0
         if snake_y < 0 or grid[snake_y-1][snake_x] == Cell.FULL:
@@ -178,6 +156,33 @@ class NeuralControler(Controler):
             apple_up, apple_down, apple_left, apple_right, 
             last_up, last_down, last_left, last_right
         ]"""
+
+        """apple_up = 0
+        apple_down = 0
+        if apple_y - snake_y < 0:
+            apple_up = 1
+        elif apple_y - snake_y > 0:
+            apple_down = 1
+
+        apple_left = 0
+        apple_right = 0
+        if apple_x - snake_x < 0:
+            apple_left = 1
+        elif apple_x - snake_x > 0:
+            apple_right = 1
+        
+        neural_input = np.array([apple_up, apple_down, apple_left, apple_right])
+        
+        fov = 1
+        full_grid = -1 * np.ones((grid_height + 2*fov, grid_width + 2*fov), dtype=int)
+        snake_grid = np.array(grid)
+        full_grid[fov:grid_height+fov, fov:grid_width+fov] = snake_grid
+        fov_grid = full_grid[snake_y:snake_y+2*fov+1, snake_x:snake_x+2*fov+1]
+
+        if abs(apple_y - snake_y) <= fov and abs(apple_x - snake_x) <= fov:
+            fov_grid[fov + apple_y - snake_y][fov + apple_x - snake_x] = 1
+
+        neural_input = np.concatenate((neural_input, fov_grid.flatten()))"""
         
         output = self.network.compute(np.array(neural_input))
         action_index = np.argmax(output)
