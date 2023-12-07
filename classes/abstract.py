@@ -1,19 +1,6 @@
 from classes.util import *
 
 
-class WindowComponent:
-	BACKGROUND_COLOR = (0, 0, 0)
-
-	def __init__(self, width: int, height: int):
-		self.width = width
-		self.height = height
-
-		self.surface: Surface = pygame.Surface((width, height))
-
-	def display(self):
-		self.surface.fill(self.BACKGROUND_COLOR)
-
-
 class Controler:
 
     def __init__(self):
