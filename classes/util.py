@@ -22,6 +22,13 @@ class Cell(IntEnum):
     FULL = -1
 
 
+class Key(Enum):
+    UP = "Up"
+    LEFT = "Left"
+    DOWN = "Down"
+    RIGHT = "Right"
+
+
 class Action(IntEnum):
     NONE = 0
     LEFT = 1

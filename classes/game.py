@@ -104,7 +104,7 @@ class Game:
         elif not 0 <= new_y < self.rules.rows:
             self.score -= 2
             self.death()
-        elif self.grid[new_y][new_x] == Cell.FULL:
+        elif self.grid[new_y][new_x] == Cell.FULL and not (new_x == self.snake[-1][0] and new_y == self.snake[-1][1]):
             hit_index = self.find_snake_part((new_x, new_y))
             if hit_index == -1:
                 pass

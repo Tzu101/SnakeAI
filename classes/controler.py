@@ -7,40 +7,67 @@ class ManualControler(Controler):
 
     def __init__(self):
         super().__init__()
-        self.user_action = Action.NONE
+        self.valid_action = Action.NONE
+        self.key_queue: List[Key] = []
+        self.key_queue_length = 0
+
+    def key_queue_add(self, new_key: Key):
+        if new_key not in self.key_queue:
+            self.key_queue.append(new_key)
+            self.key_queue_length += 1
+
+    def key_queue_remove(self, old_key: Key):
+        if old_key in self.key_queue:
+            self.key_queue.remove(old_key)
+            self.key_queue_length -= 1
 
     def compute_action(self, grid: Array2D[Cell], snake: List[Vector2], apple: Vector2) -> Action:
         keys = pygame.key.get_pressed()
-        is_len_one = len(snake) == 1
-
         if keys[pygame.K_w]:
-            if not is_len_one and self.user_action == Action.DOWN:
-                self.action = Action.NONE
-            else:
-                self.action = Action.UP
-                self.user_action = Action.UP
-        elif keys[pygame.K_s]:
-            if not is_len_one and self.user_action == Action.UP:
-                self.action = Action.NONE
-            else:
-                self.action = Action.DOWN
-                self.user_action = Action.DOWN
-        elif keys[pygame.K_a]:
-            if not is_len_one and self.user_action == Action.RIGHT:
-                self.action = Action.NONE
-            else:
-                self.action = Action.LEFT
-                self.user_action = Action.LEFT
-        elif keys[pygame.K_d]:
-            if not is_len_one and self.user_action == Action.LEFT:
-                self.action = Action.NONE
-            else:
-                self.action = Action.RIGHT
-                self.user_action = Action.RIGHT
+            self.key_queue_add(Key.UP)
         else:
-            self.action = Action.NONE
+            self.key_queue_remove(Key.UP)
+
+        if keys[pygame.K_s]:
+            self.key_queue_add(Key.DOWN)
+        else:
+            self.key_queue_remove(Key.DOWN)
+
+        if keys[pygame.K_a]:
+            self.key_queue_add(Key.LEFT)
+        else:
+            self.key_queue_remove(Key.LEFT)
+
+        if keys[pygame.K_d]:
+            self.key_queue_add(Key.RIGHT)
+        else:
+            self.key_queue_remove(Key.RIGHT)
+
+        self.action = Action.NONE
+        if self.key_queue_length <= 0:
+            return self.action
+
+        is_snake_short = len(snake) == 1
+        if self.key_queue[0] == Key.UP:
+            if is_snake_short or not self.valid_action == Action.DOWN:
+                self.action = Action.UP
+                self.valid_action = Action.UP
+
+        elif self.key_queue[0] == Key.DOWN:
+            if is_snake_short or not self.valid_action == Action.UP:
+                self.action = Action.DOWN
+                self.valid_action = Action.DOWN   
+
+        elif self.key_queue[0] == Key.LEFT:
+            if is_snake_short or not self.valid_action == Action.RIGHT:
+                self.action = Action.LEFT
+                self.valid_action = Action.LEFT 
+
+        elif self.key_queue[0] == Key.RIGHT:
+            if is_snake_short or not self.valid_action == Action.LEFT:
+                self.action = Action.RIGHT
+                self.valid_action = Action.RIGHT 
         
-        #print(self.action)
         return self.action
     
 
