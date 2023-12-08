@@ -147,12 +147,11 @@ class Game:
                 self.snake.append(snake_next)
                 self.apple = self.random_apple()
 
-    def play(self):
+    def update(self):
 
         if self.is_over:
             return
         
-
         action = self.controler.compute_action(self.grid, self.snake, self.apple)
         if action == Action.LEFT:
             self.move((-1, 0))

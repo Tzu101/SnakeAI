@@ -11,27 +11,28 @@ class ManualControler(Controler):
 
     def compute_action(self, grid: Array2D[Cell], snake: List[Vector2], apple: Vector2) -> Action:
         keys = pygame.key.get_pressed()
+        is_len_one = len(snake) == 1
 
         if keys[pygame.K_w]:
-            if self.user_action == Action.DOWN:
+            if not is_len_one and self.user_action == Action.DOWN:
                 self.action = Action.NONE
             else:
                 self.action = Action.UP
                 self.user_action = Action.UP
         elif keys[pygame.K_s]:
-            if self.user_action == Action.UP:
+            if not is_len_one and self.user_action == Action.UP:
                 self.action = Action.NONE
             else:
                 self.action = Action.DOWN
                 self.user_action = Action.DOWN
         elif keys[pygame.K_a]:
-            if self.user_action == Action.RIGHT:
+            if not is_len_one and self.user_action == Action.RIGHT:
                 self.action = Action.NONE
             else:
                 self.action = Action.LEFT
                 self.user_action = Action.LEFT
         elif keys[pygame.K_d]:
-            if self.user_action == Action.LEFT:
+            if not is_len_one and self.user_action == Action.LEFT:
                 self.action = Action.NONE
             else:
                 self.action = Action.RIGHT
@@ -39,6 +40,7 @@ class ManualControler(Controler):
         else:
             self.action = Action.NONE
         
+        #print(self.action)
         return self.action
     
 
@@ -118,14 +120,15 @@ class NeuralControler(Controler):
         ]
 
     @staticmethod
-    def range_network() -> NeuralNetwork:
+    def numeric_network() -> NeuralNetwork:
         network = NeuralNetwork(12)
+        network.layer(8, NeuralNetwork.leaky_relu)
         network.layer(8, NeuralNetwork.leaky_relu)
         network.layer(4, NeuralNetwork.none)
         return network
 
     @staticmethod
-    def range_input(grid: Array2D[Cell], snake: List[Vector2], apple: Vector2, action: Action) -> NeuralInput:
+    def numeric_input(grid: Array2D[Cell], snake: List[Vector2], apple: Vector2, action: Action) -> NeuralInput:
         # Params
         grid_width = len(grid[0])
         grid_height = len(grid)
@@ -198,8 +201,8 @@ class NeuralControler(Controler):
     @staticmethod
     def small_grid_network() -> NeuralNetwork:
         network = NeuralNetwork(13)
-        network.layer(8, NeuralNetwork.leaky_relu)
-        network.layer(8, NeuralNetwork.leaky_relu)
+        network.layer(8, NeuralNetwork.tanh)
+        network.layer(8, NeuralNetwork.tanh)
         network.layer(4, NeuralNetwork.none)
         return network
 
@@ -246,8 +249,8 @@ class NeuralControler(Controler):
     @staticmethod
     def large_grid_network() -> NeuralNetwork:
         network = NeuralNetwork(53)
-        network.layer(16, NeuralNetwork.leaky_relu)
-        network.layer(16, NeuralNetwork.leaky_relu)
+        network.layer(16, NeuralNetwork.tanh)
+        network.layer(16, NeuralNetwork.tanh)
         network.layer(4, NeuralNetwork.none)
         return network
 
