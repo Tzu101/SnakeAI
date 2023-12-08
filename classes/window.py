@@ -66,7 +66,6 @@ class Window:
 
 	
 	class Switch(Button):
-
 		SUPER_HIGHLIGHT_COLOR = (110, 110, 110)
 
 		def __init__(self, position: Vector2, size: Vector2, font, text, onclick: Callable):
@@ -118,6 +117,11 @@ class Window:
 
 	WIDTH = SIMULATION_WIDTH + PANEL_WIDTH
 	HEIGHT = SIMULATION_HEIGHT
+
+	def screenshot(self):
+		#rect = pygame.Rect(0, 0, Window.WIDTH, Window.HEIGHT)
+		#sub = self.screen.subsurface(rect)
+		pygame.image.save(self.screen, "screenshot.png")
 
 	def select_update_and_display(self, mode: Mode, view: View=View.ALL):
 		if mode == Mode.PLAY:
@@ -332,6 +336,9 @@ class Window:
 		for event in events:			
 			if event.type == pygame.QUIT:
 				self.is_running = False
+
+			elif event.type == pygame.KEYDOWN and event.key == pygame.K_F2:
+				self.screenshot()
 
 			elif event.type == pygame.MOUSEMOTION:
 				mouse_x, mouse_y = event.pos
