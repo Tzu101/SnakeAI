@@ -1,3 +1,4 @@
+from __future__ import annotations
 from classes.util import *
 
 
@@ -34,12 +35,16 @@ class NeuralNetwork:
 
     class Layer:
 
-        def __init__(self, size: int, input_size: int, activation: LayerActivation, init: LayerInit):
+        def __init__(self, size: int, input_size: int, activation: LayerActivation, init: Optional[LayerInit] = None, biases: Optional[np.ndarray] = None, weights: Optional[np.ndarray] = None):
             self.size: int = size
             self.activation: LayerActivation = activation
 
-            self.biases: np.ndarray = init(size)
-            self.weights: np.ndarray = init(size, input_size)
+            if init:
+                self.biases: np.ndarray = init(size)
+                self.weights: np.ndarray = init(size, input_size)
+            elif biases is not None and weights is not None:
+                self.biases: np.ndarray = biases
+                self.weights: np.ndarray = weights
         
         def compute(self, input: np.ndarray) -> np.ndarray:
             return np.dot(self.weights, input) + self.biases
@@ -51,13 +56,98 @@ class NeuralNetwork:
     
     def layer(self, size: int, activation: LayerActivation, init: LayerInit=np.random.randn):
         input_size = self.input_size if len(self.layers) == 0 else self.layers[-1].size
-        self.layers.append(NeuralNetwork.Layer(size, input_size, activation, init))
+        self.layers.append(NeuralNetwork.Layer(size, input_size, activation, init=init))
+
+    def layer_manual(self, size: int, activation, biases: np.ndarray, weights: np.ndarray):
+        input_size = self.input_size if len(self.layers) == 0 else self.layers[-1].size
+        self.layers.append(NeuralNetwork.Layer(size, input_size, activation, biases=biases, weights=weights))
 
     def compute(self, input: np.ndarray):
         output = np.copy(input)
         for layer in self.layers:
             output = layer.compute(output)
         return output
+    
+    @staticmethod
+    def save(network: NeuralNetwork, name: str):
+        with open(f"networks/{name}.txt", 'w') as file:
+            # Input
+            file.writelines([str(network.input_size), "\n"])
+
+            for l in range(len(network.layers)):
+                layer = network.layers[l]
+                file.writelines([str(layer.size), "\n"])
+
+                activation = "none"
+                if layer.activation == NeuralNetwork.sigmoid:
+                    activation = "sigmoid"
+                elif layer.activation == NeuralNetwork.relu:
+                    activation = "relu"
+                elif layer.activation == NeuralNetwork.leaky_relu:
+                    activation = "leaky_relu"
+                elif layer.activation == NeuralNetwork.softmax:
+                    activation = "softmax"
+                elif layer.activation == NeuralNetwork.tanh:
+                    activation = "tanh"
+                file.writelines([activation, "\n"])
+
+                biases = []
+                for bias in layer.biases:
+                    biases.append(str(bias))
+                biases = " ".join(biases)
+                file.writelines([biases, "\n"])
+
+                weight_matrix = []
+                for weight_array in layer.weights:
+                    weights = []
+                    for weight in weight_array:
+                        weights.append(str(weight))
+                    weights = " ".join(weights)
+                    weight_matrix.append(weights)
+                weight_matrix = " ".join(weight_matrix)
+
+                if l == len(network.layers)-1:
+                    file.write(weight_matrix)
+                else:
+                    file.writelines([weight_matrix, "\n"])
+
+    @staticmethod
+    def load(name: str) -> NeuralNetwork:
+        with open(f"networks/{name}.txt", 'r') as file:
+            lines = file.read().split("\n")
+
+            input_size = int(lines[0])
+            network = NeuralNetwork(input_size)
+
+            prev_size = input_size
+            for l in range(1, len(lines), 4):
+                size = int(lines[l])
+                activation_name = lines[l+1]
+                biases = lines[l + 2].split(" ")
+                weights = lines[l + 3].split(" ")
+
+                activation = NeuralNetwork.none
+                if activation_name == "sigmoid":
+                    activation = NeuralNetwork.sigmoid
+                elif activation_name == "relu":
+                    activation = NeuralNetwork.relu
+                elif activation_name == "leaky_relu":
+                    activation = NeuralNetwork.leaky_relu
+                elif activation_name == "softmax":
+                    activation = NeuralNetwork.softmax
+                elif activation_name == "tanh":
+                    activation = NeuralNetwork.tanh
+
+                biases_array = [float(bias) for bias in biases]
+                weights_matrix = []
+                for s in range(0, len(weights), prev_size):
+                    weights_array = [float(weight) for weight in weights[s:s+prev_size]]
+                    weights_matrix.append(weights_array)
+
+                network.layer_manual(size, activation, np.array(biases_array), np.array(weights_matrix))
+                prev_size = size
+
+        return network
 
 
 NetworkConstructor = Callable[[], NeuralNetwork]

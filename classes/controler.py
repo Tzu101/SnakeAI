@@ -3,6 +3,11 @@ from classes.abstract import Controler
 from classes.network import NeuralNetwork
 
 
+class DummyControler(Controler):
+    def __init__(self):
+        super().__init__()
+
+
 class ManualControler(Controler):
 
     def __init__(self):
@@ -79,7 +84,7 @@ class NeuralControler(Controler):
     @staticmethod
     def binary_network() -> NeuralNetwork:
         network = NeuralNetwork(12)
-        network.layer(4, NeuralNetwork.tanh)
+        network.layer(8, NeuralNetwork.tanh)
         network.layer(4, NeuralNetwork.none)
         return network
 
@@ -148,9 +153,8 @@ class NeuralControler(Controler):
 
     @staticmethod
     def numeric_network() -> NeuralNetwork:
-        network = NeuralNetwork(12)
-        network.layer(8, NeuralNetwork.leaky_relu)
-        network.layer(8, NeuralNetwork.leaky_relu)
+        network = NeuralNetwork(24)
+        network.layer(10, NeuralNetwork.tanh)
         network.layer(4, NeuralNetwork.none)
         return network
 
@@ -159,6 +163,7 @@ class NeuralControler(Controler):
         # Params
         grid_width = len(grid[0])
         grid_height = len(grid)
+        grid_avg_size = (grid_width + grid_height) / 2
 
         snake_x = snake[0][0]
         snake_y = snake[0][1]
@@ -166,69 +171,131 @@ class NeuralControler(Controler):
         apple_x = apple[0]
         apple_y = apple[1]
 
-        # Inputs
+        """
+            Inputs
+        """
+        
+        # Wall
         wall_up = snake_y
-        apple_up = grid_height
-        if apple_y < snake_y:
-            apple_up = snake_y - apple_y
-        snake_up = grid_height
-        for y in range(snake_y, 0, -1):
-            if grid[y-1][snake_x] == Cell.EMPTY:
-                snake_up -= 1
-            else:
-                snake_up = -snake_up
-                break
-        snake_up = max(snake_up, 0)
-
         wall_down = grid_height - snake_y - 1
-        apple_down = grid_height
-        if apple_y > snake_y:
-            apple_down = apple_y - snake_y
-        snake_down = grid_height
-        for y in range(snake_y, grid_height-1):
-            if grid[y+1][snake_x] == Cell.EMPTY:
-                snake_down -= 1
-            else:
-                snake_down = -snake_down
-                break
-        snake_down = max(snake_down, 0)
-
         wall_left = snake_x
-        apple_left = grid_width
-        if apple_x < snake_x:
-            apple_left = snake_x - apple_x
-        snake_left = grid_width
-        for x in range(snake_x, 0, -1):
-            if grid[snake_y][x-1] == Cell.EMPTY:
-                snake_left -= 1
-            else:
-                snake_left = -snake_left
-                break
-        snake_left = max(snake_left, 0)
-
         wall_right = grid_width - snake_x - 1
-        apple_right = grid_width
-        if apple_x > snake_x:
-            apple_right = apple_x - snake_x
-        snake_right = grid_width
-        for x in range(snake_x, grid_width-1):
-            if grid[snake_y][x+1] == Cell.EMPTY:
-                snake_right -= 1
-            else:
-                snake_right = -snake_right
-                break
-        snake_right = max(snake_right, 0)
 
-        return [
-            wall_up, wall_down, wall_left, wall_right, 
-            snake_up, snake_down, snake_left, snake_right, 
+        wall_up_left = min(wall_up, wall_left)
+        wall_up_right = min(wall_up, wall_right)
+        wall_down_left = min(wall_down, wall_left)
+        wall_down_right = min(wall_down, wall_right)
+
+        # Snake
+        snake_up = grid_height
+        snake_down = grid_height
+        snake_left = grid_width
+        snake_right = grid_width
+
+        snake_up_left = grid_avg_size
+        snake_up_right = grid_avg_size
+        snake_down_left = grid_avg_size
+        snake_down_right = grid_avg_size
+
+        snake_head_x = snake[0][0]
+        snake_head_y = snake[0][1]
+        for snake_body in snake[1:]:
+            temp_snake_up = grid_height
+            temp_snake_down = grid_height
+            temp_snake_left = grid_width
+            temp_snake_right = grid_width
+
+            temp_snake_up_left = grid_avg_size
+            temp_snake_up_right = grid_avg_size
+            temp_snake_down_left = grid_avg_size
+            temp_snake_down_right = grid_avg_size
+
+            snake_body_x = snake_body[0]
+            snake_body_y = snake_body[1]
+
+            dist_x = abs(snake_head_x - snake_body_x)
+            dist_y = abs(snake_head_y - snake_body_y)
+
+            head_over_body_y = snake_head_y > snake_body_y
+            body_over_head_y = snake_body_y > snake_head_y
+            head_over_body_x = snake_head_x > snake_body_x
+            body_over_head_x = snake_body_x > snake_head_x
+
+            if dist_x == 0:
+                if head_over_body_y:
+                    temp_snake_up = dist_y - 1
+                elif body_over_head_y:
+                    temp_snake_down = -dist_y + 1
+
+            if dist_y == 0:
+                if head_over_body_x:
+                    temp_snake_left = dist_x - 1
+                elif body_over_head_x:
+                    temp_snake_right = -dist_x + 1
+
+            if dist_x == dist_y:
+                if head_over_body_y and head_over_body_x:
+                    temp_snake_up_left = dist_x
+                elif head_over_body_y and body_over_head_x:
+                    temp_snake_up_right = dist_x
+                elif body_over_head_y and head_over_body_x:
+                    temp_snake_down_left = dist_x
+                elif body_over_head_y and body_over_head_x:
+                    temp_snake_down_right = dist_x
+            
+            snake_up = min(snake_up, temp_snake_up)
+            snake_down = min(snake_down, temp_snake_down)
+            snake_left = min(snake_left, temp_snake_left)
+            snake_right = min(snake_right, temp_snake_right)
+
+            snake_up_left = min(snake_up_left, temp_snake_up_left)
+            snake_up_right = min(snake_up_right, temp_snake_up_right)
+            snake_down_left = min(snake_down_left, temp_snake_down_left)
+            snake_down_right = min(snake_down_right, temp_snake_down_right)
+        
+        # Apple
+        apple_up = grid_height
+        apple_down = grid_height
+        apple_left = grid_width
+        apple_right = grid_width
+
+        apple_x = apple[0]
+        apple_y = apple[1]
+
+        if apple_y < snake_head_y:
+            apple_up = snake_head_y - apple_y - 1
+        elif apple_y > snake_head_y:
+            apple_down = apple_y - snake_head_y - 1
+
+        if apple_x < snake_head_x:
+            apple_left = snake_head_x - apple_x - 1
+        elif apple_x > snake_head_x:
+            apple_right = apple_x - snake_head_x - 1
+
+        apple_up_left = (apple_up + apple_left) / 2
+        apple_up_right = (apple_up + apple_right) / 2
+        apple_down_left = (apple_down + apple_left) / 2
+        apple_down_right = (apple_down + apple_right) / 2
+
+        # Final
+        neural_input = np.array([
+            wall_up, wall_down, wall_left, wall_right,
+            wall_up_left, wall_up_right, wall_down_left, wall_down_right,
+            snake_up, snake_down, snake_left, snake_right,
+            snake_up_left, snake_up_right, snake_down_left, snake_down_right,
             apple_up, apple_down, apple_left, apple_right,
-        ]
+            apple_up_left, apple_up_right, apple_down_left, apple_down_right,
+        ])
+
+        mean = np.mean(neural_input, axis=0)
+        std_dev = np.std(neural_input, axis=0)
+
+        # Standardize the data
+        return (neural_input - mean) / std_dev
     
     @staticmethod
     def small_grid_network() -> NeuralNetwork:
         network = NeuralNetwork(13)
-        network.layer(8, NeuralNetwork.tanh)
         network.layer(8, NeuralNetwork.tanh)
         network.layer(4, NeuralNetwork.none)
         return network
@@ -276,7 +343,6 @@ class NeuralControler(Controler):
     @staticmethod
     def large_grid_network() -> NeuralNetwork:
         network = NeuralNetwork(53)
-        network.layer(16, NeuralNetwork.tanh)
         network.layer(16, NeuralNetwork.tanh)
         network.layer(4, NeuralNetwork.none)
         return network

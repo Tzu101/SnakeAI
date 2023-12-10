@@ -3,7 +3,14 @@ import random
 import pygame
 import numpy as np
 from enum import IntEnum, Enum
-from typing import List, Tuple, Union, TypeVar, Callable
+from typing import List, Tuple, Union, TypeVar, Callable, Optional
+
+
+class NetworkType(Enum):
+    BINARY = 0
+    NUMERIC = 1
+    SMALL_GRID = 2
+    LARGE_GRID = 3
 
 
 class Mode(Enum):
@@ -13,8 +20,8 @@ class Mode(Enum):
 
 
 class View(Enum):
-    BEST=0
-    ALL=1
+    BEST = 0
+    ALL = 1
 
 
 class Cell(IntEnum):

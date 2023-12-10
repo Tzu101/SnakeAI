@@ -2,7 +2,7 @@ import sys
 from classes.util import *
 from classes.game import Game
 from classes.network import NeuralNetwork, GeneticAlgorithm
-from classes.controler import ManualControler, NeuralControler
+from classes.controler import ManualControler, NeuralControler, DummyControler
 
 
 class Window:
@@ -98,14 +98,21 @@ class Window:
 					self.body_color = Window.Button.BODY_COLOR
 				self.onclick(self.is_toggled)
 
+		def set_clicked(self, is_clicked: bool):
+			self.is_toggled = is_clicked
+			if self.is_toggled:
+				self.body_color = Window.Button.HIGHLIGHT_COLOR
+			else:
+				self.body_color = Window.Button.BODY_COLOR
+
 
 	PANEL_WIDTH = 400
 	PANEL_COLOR = (30, 30, 30)
 	
 	SIMULATION_WIDTH = 1200
 	SIMULATION_HEIGHT = 900
-	SIMULATION_COLUMNS = 8
-	SIMULATION_ROWS = 6
+	SIMULATION_COLUMNS = 12
+	SIMULATION_ROWS = 9
 	SIMULATION_NUM = SIMULATION_COLUMNS * SIMULATION_ROWS
 	SIMULATION_SPEED = 0.1
 
@@ -138,20 +145,30 @@ class Window:
 			self.update_selected = self.update_archive
 			self.display_selected = self.display_archive
 
-	def select_play(self):
+	def select_play(self, *args):
+		self.play_button.set_clicked(True)
+		self.simulate_button.set_clicked(False)
+		self.archive_button.set_clicked(False)
 		self.select_update_and_display(Mode.PLAY)
 
-	def select_simulate_all(self):
+	def select_simulate_all(self, *args):
+		self.play_button.set_clicked(False)
+		self.simulate_button.set_clicked(True)
+		self.archive_button.set_clicked(False)
 		self.select_update_and_display(Mode.SIMULATE, View.ALL)
 
 	def select_simulate_best(self):
 		self.select_update_and_display(Mode.SIMULATE, View.BEST)
 
-		if hasattr(self.best_game.controler, "network") and self.best_network != self.best_game.controler.network: # type: ignore
+		if not hasattr(self.best_game.controler, "network") or self.best_network != self.best_game.controler.network: # type: ignore
 			self.best_game = Game(self.view_gamerules, NeuralControler(self.best_network, self.input_calculator))
 
-	def select_archive(self):
+	def select_archive(self, *args):
+		self.play_button.set_clicked(False)
+		self.simulate_button.set_clicked(False)
+		self.archive_button.set_clicked(True)
 		self.select_update_and_display(Mode.ARCHIVE)
+		self.binary_archive_button.onclick()
 
 	def accelerate_simulation(self, do_acc: bool):
 		if do_acc:
@@ -160,6 +177,51 @@ class Window:
 		else:
 			self.simulation_speed = Window.SIMULATION_SPEED
 			self.simulation_iterations = lambda : 1
+	
+	def load_archive(self, file_name: str, input_calculator: Callable, type: NetworkType):
+
+		def load_archive_wrapped(*args):
+			self.binary_archive_button.set_clicked(False)
+			self.numeric_archive_button.set_clicked(False)
+			self.small_grid_archive_button.set_clicked(False)
+			self.large_grid_archive_button.set_clicked(False)
+
+			if type == NetworkType.BINARY:
+				self.binary_archive_button.set_clicked(True)
+			elif type == NetworkType.NUMERIC:
+				self.numeric_archive_button.set_clicked(True)
+			elif type == NetworkType.SMALL_GRID:
+				self.small_grid_archive_button.set_clicked(True)
+			elif type == NetworkType.LARGE_GRID:
+				self.large_grid_archive_button.set_clicked(True)
+
+			network = NeuralNetwork.load(file_name)
+			self.archive_game = Game(self.view_gamerules, NeuralControler(network, input_calculator))
+
+		return load_archive_wrapped
+	
+	def change_simulation(self, network_constructor: Callable, input_calculator: Callable, type: NetworkType):
+
+		def change_simulation_wrapped(*args):
+			self.binary_simulation_button.set_clicked(False)
+			self.numeric_simulation_button.set_clicked(False)
+			self.small_grid_simulation_button.set_clicked(False)
+			self.large_grid_simulation_button.set_clicked(False)
+
+			if type == NetworkType.BINARY:
+				self.binary_simulation_button.set_clicked(True)
+			elif type == NetworkType.NUMERIC:
+				self.numeric_simulation_button.set_clicked(True)
+			elif type == NetworkType.SMALL_GRID:
+				self.small_grid_simulation_button.set_clicked(True)
+			elif type == NetworkType.LARGE_GRID:
+				self.large_grid_simulation_button.set_clicked(True)
+
+			self.network_constructor = network_constructor
+			self.input_calculator = input_calculator
+			self.simulation_reset()
+
+		return change_simulation_wrapped
 
 	def __init__(self):
 
@@ -182,40 +244,86 @@ class Window:
 		self.title_text = Window.Text(title_font, "SnakeAI", (30, 20))
 		self.credits_text = Window.Text(info_font, "by Tzu1", (Window.PANEL_WIDTH - 80, Window.HEIGHT - 25))
 
-		self.play_button = Window.Button((30, 80), (75, 40), info_font, "Play", self.select_play)
-		self.simulate_button = Window.Button((130, 80), (100, 40), info_font, "Simulate", self.select_simulate_all)
-		self.archive_button = Window.Button((255, 80), (90, 40), info_font, "Archive", self.select_archive)
+		self.play_button = Window.Switch((30, 80), (75, 40), info_font, "Play", self.select_play)
+		self.simulate_button = Window.Switch((115, 80), (100, 40), info_font, "Simulate", self.select_simulate_all)
+		self.archive_button = Window.Switch((225, 80), (90, 40), info_font, "Archive", self.select_archive)
+		self.play_button.set_clicked(True)
 
 		self.play_text = Window.Text(info_font, "Press AWSD to move", (30, 140))
+		self.score_text = Window.Text(info_font, "Score: 0", (30, 170))
 
-		self.generation_text = Window.Text(info_font, "Generation: N/A", (30, 140))
+		self.generation_text = Window.Text(info_font, "Generation: 0", (30, 140))
 		self.max_fitness_text = Window.Text(info_font, "Maximum fitness: N/A", (30, 170))
 		self.avg_fitness_text = Window.Text(info_font, "Average fitness: N/A", (30, 200))
 
-		self.accelerate_simulation_switch = Window.Switch((30, 250), (110, 40), info_font, "Speed up", self.accelerate_simulation)
-		self.simulate_best_button = Window.Button((170, 250), (110, 40), info_font, "View best", self.select_simulate_best)
-		self.simulate_all_button = Window.Button((170, 250), (105, 40), info_font, "View all", self.select_simulate_all)
+		self.accelerate_simulation_switch = Window.Switch((30, 240), (110, 40), info_font, "Speed up", self.accelerate_simulation)
+		self.simulation_reset_button = Window.Switch((150, 240), (110, 40), info_font, "Reset", self.simulation_reset)
+		self.simulate_best_button = Window.Button((270, 240), (110, 40), info_font, "View best", self.select_simulate_best)
+		self.simulate_all_button = Window.Button((270, 240), (105, 40), info_font, "View all", self.select_simulate_all)
+
+		self.binary_simulation_text = Window.Text(info_font, "(12)->tanh(8)->(4)", (150, 315))
+		self.numeric_simulation_text = Window.Text(info_font, "(24)->tanh(10)->(4)", (150, 365))
+		self.small_grid_simulation_text = Window.Text(info_font, "(13)->tanh(8)->(4)", (150, 415))
+		self.large_grid_simulation_text = Window.Text(info_font, "(53)->tanh(16)->(4)", (150, 465))
+
+		self.binary_simulation_button = Window.Switch((30, 305), (105, 40), info_font, "Binary", self.change_simulation(NeuralControler.binary_network, NeuralControler.binary_input, NetworkType.BINARY))
+		self.numeric_simulation_button = Window.Switch((30, 355), (105, 40), info_font, "Numberic", self.change_simulation(NeuralControler.numeric_network, NeuralControler.numeric_input, NetworkType.NUMERIC))
+		self.small_grid_simulation_button = Window.Switch((30, 405), (105, 40), info_font, "Grid 3x3", self.change_simulation(NeuralControler.small_grid_network, NeuralControler.small_grid_input, NetworkType.SMALL_GRID))
+		self.large_grid_simulation_button = Window.Switch((30, 455), (105, 40), info_font, "Grid 7x7", self.change_simulation(NeuralControler.large_grid_network, NeuralControler.large_grid_input, NetworkType.LARGE_GRID))
+
+		self.archive_text = Window.Text(info_font, "Select a network to run", (30, 140))
+
+		self.binary_archive_text = Window.Text(info_font, "Fitness: 240", (150, 190))
+		self.numeric_archive_text = Window.Text(info_font, "Fitness: 195", (150, 240))
+		self.small_grid_archive_text = Window.Text(info_font, "Fitness: 240", (150, 290))
+		self.large_grid_archive_text = Window.Text(info_font, "Fitness: 231", (150, 340))
+
+		self.binary_archive_button = Window.Switch((30, 180), (105, 40), info_font, "Binary", self.load_archive("binary_240", NeuralControler.binary_input, NetworkType.BINARY))
+		self.numeric_archive_button = Window.Switch((30, 230), (105, 40), info_font, "Numberic", self.load_archive("numeric_195", NeuralControler.numeric_input, NetworkType.NUMERIC))
+		self.small_grid_archive_button = Window.Switch((30, 280), (105, 40), info_font, "Grid 3x3", self.load_archive("small_grid_240", NeuralControler.small_grid_input, NetworkType.SMALL_GRID))
+		self.large_grid_archive_button = Window.Switch((30, 330), (105, 40), info_font, "Grid 7x7", self.load_archive("large_grid_231", NeuralControler.large_grid_input, NetworkType.LARGE_GRID))
 
 		# Simulation setup
 		self.simulation_gamerules = Game.Rules(Window.GAME_WIDTH, Window.GAME_HEIGHT, 10, 10, 10)
 		self.view_gamerules = Game.Rules(Window.SIMULATION_WIDTH, Window.SIMULATION_HEIGHT, 24, 18, -1)
 		self.play_gamerules = Game.Rules(Window.SIMULATION_WIDTH, Window.SIMULATION_HEIGHT, 24, 18, -1, sys.maxsize)
 
-		self.survival_size = Window.SIMULATION_NUM // 3
+		self.survival_size = Window.SIMULATION_NUM // 4
 		self.generation_num = 0
-		self.mutation_chance = 0.05
+		self.mutation_chance = 0.1
 		self.parent_num = 2
 
 		self.play_timer = 0
 		self.simulate_best_timer = 0
+		self.archive_timer = 0
 
 		self.simulate_all_timer = 0
 		self.simulation_speed = Window.SIMULATION_SPEED
 		self.simulation_iterations = lambda : 1
 		self.games_over = 0
 
-		self.network_constructor = NeuralControler.numeric_network
-		self.input_calculator = NeuralControler.numeric_input
+		self.networks: List[NeuralNetwork] = []
+		self.simulated_games: List[Game] = []
+
+		self.play_game = Game(self.play_gamerules, ManualControler())
+		self.best_game = Game(self.view_gamerules, DummyControler())
+		self.archive_game = Game(self.view_gamerules, DummyControler())
+
+		self.best_network = NeuralNetwork(0)
+		self.best_score = -sys.maxsize
+
+		self.network_constructor = NeuralControler.binary_network
+		self.input_calculator = NeuralControler.binary_input
+		self.binary_simulation_button.onclick()
+
+	def simulation_reset(self):
+		self.games_over = 0
+		self.simulate_all_timer = 0
+		self.generation_num = 0
+
+		self.generation_text.change_text("Generation: 0")
+		self.max_fitness_text.change_text("Maximum fitness: N/A")
+		self.avg_fitness_text.change_text("Average fitness: N/A")
 
 		self.networks: List[NeuralNetwork] = []
 		self.simulated_games: List[Game] = []
@@ -223,14 +331,12 @@ class Window:
 			network = self.network_constructor()
 			self.networks.append(network)
 			self.simulated_games.append(Game(self.simulation_gamerules, NeuralControler(network, self.input_calculator)))
-		self.play_game = Game(self.play_gamerules, ManualControler())
-		self.best_game = Game(self.view_gamerules, self.simulated_games[0].controler)
-
+		self.best_score = -sys.maxsize
 		self.best_network = self.networks[0]
-		self.best_score = 0
 
 	def simulate_next_generation(self):
 		self.games_over = 0
+		self.generation_num += 1
 
 		scores = []
 		for game in self.simulated_games:
@@ -266,8 +372,6 @@ class Window:
 			self.networks.append(surviving_network)
 			surviving_game = Game(self.simulation_gamerules, NeuralControler(surviving_network, self.input_calculator))
 			self.simulated_games.append(surviving_game)
-		
-		self.generation_num += 1
 	
 	def update_simulated_games(self):
 		self.simulate_all_timer += self.delta_time
@@ -295,18 +399,32 @@ class Window:
 
 			if self.play_game.controler.action != Action.NONE:
 				self.play_timer = 0
+		
+		self.score_text.change_text(f"Score: {self.play_game.score}")
 
 	def update_simulate_all(self, events: List[Event]):
 		for event in events:			
 			if event.type == pygame.MOUSEMOTION:
 				mouse_x, mouse_y = event.pos
 				self.accelerate_simulation_switch.highlight(mouse_x, mouse_y)
+				self.simulation_reset_button.highlight(mouse_x, mouse_y)
 				self.simulate_best_button.highlight(mouse_x, mouse_y)
+
+				self.binary_simulation_button.highlight(mouse_x, mouse_y)
+				self.numeric_simulation_button.highlight(mouse_x, mouse_y)
+				self.small_grid_simulation_button.highlight(mouse_x, mouse_y)
+				self.large_grid_simulation_button.highlight(mouse_x, mouse_y)
 
 			elif event.type == pygame.MOUSEBUTTONDOWN:
 				if event.button == 1:
 					self.accelerate_simulation_switch.click()
+					self.simulation_reset_button.click()
 					self.simulate_best_button.click()
+
+					self.binary_simulation_button.click()
+					self.numeric_simulation_button.click()
+					self.small_grid_simulation_button.click()
+					self.large_grid_simulation_button.click()
 
 		self.update_simulated_games()
 
@@ -315,11 +433,13 @@ class Window:
 			if event.type == pygame.MOUSEMOTION:
 				mouse_x, mouse_y = event.pos
 				self.accelerate_simulation_switch.highlight(mouse_x, mouse_y)
+				self.simulation_reset_button.highlight(mouse_x, mouse_y)
 				self.simulate_all_button.highlight(mouse_x, mouse_y)
 
 			elif event.type == pygame.MOUSEBUTTONDOWN:
 				if event.button == 1:
 					self.accelerate_simulation_switch.click()
+					self.simulation_reset_button.click()
 					self.simulate_all_button.click()
 		
 		self.update_simulated_games()
@@ -329,7 +449,25 @@ class Window:
 			self.best_game.update()
 
 	def update_archive(self, events: List[Event]):
-		pass
+		for event in events:			
+			if event.type == pygame.MOUSEMOTION:
+				mouse_x, mouse_y = event.pos
+				self.binary_archive_button.highlight(mouse_x, mouse_y)
+				self.numeric_archive_button.highlight(mouse_x, mouse_y)
+				self.small_grid_archive_button.highlight(mouse_x, mouse_y)
+				self.large_grid_archive_button.highlight(mouse_x, mouse_y)
+
+			elif event.type == pygame.MOUSEBUTTONDOWN:
+				if event.button == 1:
+					self.binary_archive_button.click()
+					self.numeric_archive_button.click()
+					self.small_grid_archive_button.click()
+					self.large_grid_archive_button.click()
+
+		self.archive_timer += self.delta_time
+		if self.archive_timer >= Window.VIEW_SPEED:
+			self.archive_timer = 0
+			self.archive_game.update()
 	
 	def update(self):
 		events = pygame.event.get()
@@ -359,16 +497,28 @@ class Window:
 		self.screen.blit(self.play_game.surface, (0, 0))
 		
 		self.play_text.display(self.panel)
+		self.score_text.display(self.panel)
 
 	def display_simulate(self):
 		self.generation_text.display(self.panel)
 		self.max_fitness_text.display(self.panel)
 		self.avg_fitness_text.display(self.panel)
 		self.accelerate_simulation_switch.display(self.panel)
+		self.simulation_reset_button.display(self.panel)
 
 	def display_simulate_all(self):
 		self.display_simulate()
 		self.simulate_best_button.display(self.panel)
+
+		self.binary_simulation_text.display(self.panel)
+		self.numeric_simulation_text.display(self.panel)
+		self.small_grid_simulation_text.display(self.panel)
+		self.large_grid_simulation_text.display(self.panel)
+
+		self.binary_simulation_button.display(self.panel)
+		self.numeric_simulation_button.display(self.panel)
+		self.small_grid_simulation_button.display(self.panel)
+		self.large_grid_simulation_button.display(self.panel)
 
 		for game_index in range(Window.SIMULATION_NUM):
 			game = self.simulated_games[game_index]
@@ -386,7 +536,19 @@ class Window:
 		self.screen.blit(self.best_game.surface, (0, 0))
 
 	def display_archive(self):
-		pass
+		self.archive_text.display(self.panel)
+		self.binary_archive_text.display(self.panel)
+		self.numeric_archive_text.display(self.panel)
+		self.small_grid_archive_text.display(self.panel)
+		self.large_grid_archive_text.display(self.panel)
+
+		self.binary_archive_button.display(self.panel)
+		self.numeric_archive_button.display(self.panel)
+		self.small_grid_archive_button.display(self.panel)
+		self.large_grid_archive_button.display(self.panel)
+
+		self.archive_game.display()
+		self.screen.blit(self.archive_game.surface, (0, 0))
 
 	def display(self):
 		pygame.draw.rect(self.screen, (0, 0, 0), (0, 0, Window.SIMULATION_WIDTH, Window.SIMULATION_HEIGHT))

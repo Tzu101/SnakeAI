@@ -89,10 +89,13 @@ class Game:
     
     def death(self):
         self.lives -= 1
-        if self.lives != 0:
+        if self.lives > 0:
             self.reset()
-        else:
+        elif self.lives == 0:
             self.is_over = True
+        else:
+            self.score = 0
+            self.reset() 
 
     def move(self, direction: Vector2):
         new_x = self.snake[0][0] + direction[0]
@@ -104,7 +107,7 @@ class Game:
         elif not 0 <= new_y < self.rules.rows:
             self.score -= 2
             self.death()
-        elif self.grid[new_y][new_x] == Cell.FULL and not (new_x == self.snake[-1][0] and new_y == self.snake[-1][1]):
+        elif self.grid[new_y][new_x] == Cell.FULL and not (len(self.snake) > 2 and new_x == self.snake[-1][0] and new_y == self.snake[-1][1]):
             hit_index = self.find_snake_part((new_x, new_y))
             if hit_index == -1:
                 pass
